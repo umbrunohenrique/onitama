@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Onitama — Card Emulator</title>
+  <style>
+    :root {
+      --bg: #0f1724;
+      --panel: #182033;
+      --card-bg: #1f2937;
+      --accent: #facc15;
+      --p1: #3b82f6;
+      --p2: #f87171;
+      --neutral: #10b981;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; font-family: Inter, system-ui, sans-serif; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0a1328, #040916);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .game {
+      background: var(--panel);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      max-width: 900px;
+      width: 100%;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 22px; margin: 0; }
+    button {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent); color: #111; }
+    .cards {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .card {
+      background: var(--card-bg);
+      flex: 1;
+      min-width: 150px;
+      text-align: center;
+      padding: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .card:hover { transform: translateY(-3px); }
+    .card h3 { margin: 8px 0 4px 0; font-size: 18px; }
+    .player1 { border: 2px solid var(--p1); }
+    .player2 { border: 2px solid var(--p2); }
+    .neutral { border: 2px solid var(--neutral); }
+    .turn { text-align: center; font-size: 18px; margin: 14px 0; }
+    .board {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(5, 1fr);
+      gap: 3px;
+      width: 100px;
+      height: 100px;
+    }
+    .cell {
+      background: #0d182b;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+    .center { background: var(--accent); color: #111; }
+    .move { background: var(--neutral); }
+    dialog {
+      border: none;
+      border-radius: 12px;
+      padding: 20px;
+      background: #111827;
+      color: var(--text);
+      width: 90%;
+      max-width: 500px;
+    }
+    dialog::backdrop { background: rgba(0,0,0,0.6); }
+    dialog h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="game">
+    <div class="header">
+      <h1>Onitama — Card Emulator</h1>
+      <button id="showRules">📘 Rules</button>
+    </div>
+    <div class="turn" id="turn">Player 1's turn</div>
+    <div class="cards" id="cardArea"></div>
+  </div>
+
+  <dialog id="rules">
+    <h2>Onitama Card Rules</h2>
+    <p>
+      Each player begins with two cards, and one neutral card sits in the center.
+      On your turn, use one of your two cards to move your piece on the physical board according to that card's pattern.
+      After using a card, exchange it with the neutral card — that neutral card becomes yours, and the used card becomes neutral.
+      Then, it's the other player's turn.
+    </p>
+    <p>
+      Victory conditions follow the physical board rules: capture the opponent’s Master or move your Master to the Temple Arch.
+    </p>
+    <button id="closeRules">Close</button>
+  </dialog>
+
+<script>
+const allCards = [
+  {name:'Boar', moves:[[ -1,0 ], [0,-1], [0,1 ]]},
+  {name:'Cobra', moves:[[ -1,1 ], [1,-1 ]]},
+  {name:'Crab', moves:[[ 0,-2 ], [ -1,0 ], [ 0,2 ]]},
+  {name:'Crane', moves:[[ -1,0 ], [ 1,-1 ], [ 1,1 ]]},
+  {name:'Dragon', moves:[[ -1,-2 ], [ -1,2 ], [ 1,-1 ], [ 1,1 ]]},
+  {name:'Eel', moves:[[ -1,-1 ], [ 1,1 ]]},
+  {name:'Elephant', moves:[[ -1,-1 ], [ -1,1 ], [0,-1 ], [0,1 ]]},
+  {name:'Frog', moves:[[ -1,-1 ], [ 0,-1 ], [ 1,1 ]]},
+  {name:'Goose', moves:[[ 0,-1 ], [ -1,-1 ], [ 1,1 ], [ 0,1 ]]},
+  {name:'Horse', moves:[[ -1,0 ], [ 0,-1 ], [ 1,0 ]]},
+  {name:'Mantis', moves:[[ -1,-1 ], [ -1,1 ], [ 1,0 ]]},
+  {name:'Monkey', moves:[[ -1,-1 ], [ -1,1 ], [ 1,-1 ], [ 1,1 ]]},
+  {name:'Ox', moves:[[ -1,0 ], [ 1,0 ], [ 0,1 ]]},
+  {name:'Rabbit', moves:[[ -1,1 ], [ 0,1 ], [ 1,-1 ]]},
+  {name:'Rooster', moves:[[ -1,1 ], [ 0,1 ], [ 1,-1 ], [ 0,-1 ]]},
+  {name:'Tiger', moves:[[ -2,0 ], [ 1,0 ]]}
+];
+
+let player1 = [];
+let player2 = [];
+let neutral = null;
+let currentPlayer = 1;
+
+function shuffle(array) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
+function initGame() {
+  const shuffled = shuffle([...allCards]);
+  player1 = [shuffled[0], shuffled[1]];
+  player2 = [shuffled[2], shuffled[3]];
+  neutral = shuffled[4];
+  render();
+}
+
+function renderCard(card, owner, index) {
+  const div = document.createElement('div');
+  div.className = `card ${owner}`;
+  div.innerHTML = `<h3>${card.name}</h3>`;
+
+  const board = document.createElement('div');
+  board.className = 'board';
+  for(let r=0;r<5;r++){
+    for(let c=0;c<5;c++){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      if(r===2&&c===2)cell.classList.add('center');
+      const found = card.moves.find(m=>2+m[0]===r && 2+m[1]===c);
+      if(found)cell.classList.add('move');
+      board.appendChild(cell);
+    }
+  }
+  div.appendChild(board);
+
+  if((owner==='player1' && currentPlayer===1)||(owner==='player2' && currentPlayer===2)){
+    div.addEventListener('click',()=>playCard(owner,index));
+  } else {
+    div.style.opacity = '0.6';
+  }
+  return div;
+}
+
+function render() {
+  const area = document.getElementById('cardArea');
+  area.innerHTML = '';
+  const p1wrap = player1.map((c,i)=>renderCard(c,'player1',i));
+  const p2wrap = player2.map((c,i)=>renderCard(c,'player2',i));
+  area.append(...p1wrap);
+  const neutralCard = renderCard(neutral,'neutral');
+  area.append(neutralCard);
+  area.append(...p2wrap);
+  document.getElementById('turn').textContent = currentPlayer===1 ? "Player 1's turn" : "Player 2's turn";
+}
+
+function playCard(owner,index){
+  if(owner==='player1' && currentPlayer===1){
+    const used = player1.splice(index,1)[0];
+    player1.push(neutral);
+    neutral = used;
+    currentPlayer = 2;
+  } else if(owner==='player2' && currentPlayer===2){
+    const used = player2.splice(index,1)[0];
+    player2.push(neutral);
+    neutral = used;
+    currentPlayer = 1;
+  }
+  render();
+}
+
+document.getElementById('showRules').onclick = ()=> document.getElementById('rules').showModal();
+document.getElementById('closeRules').onclick = ()=> document.getElementById('rules').close();
+
+initGame();
+</script>
+</body>
+</html>
